@@ -112,10 +112,7 @@ class MensaDataManager: ObservableObject, @unchecked Sendable {
 #if !os(watchOS)
             searchTerm = ""
 #endif
-            SettingsManager.shared.sortBy = .def
-            SettingsManager.shared.mensaShowType = .all
-            SettingsManager.shared.mensaLocationType = .all
-            NavigationManager.shared.selectedWeekdayCodeOverride = nil
+            MensaFilter.removeAll()
         }
     }
 
