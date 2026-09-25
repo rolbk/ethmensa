@@ -95,11 +95,24 @@ private struct FilterMenuView: View {
         }
     }
 
+    /// Selecting today's weekday removes the weekday filter.
+    private var weekdayCode: Binding<Int> {
+        Binding {
+            navigationManager.listWeekdayCode
+        } set: { weekdayCode in
+            if weekdayCode == Calendar.todayWeedaykETHCorrected {
+                MensaFilter.weekday(weekdayCode).remove()
+            } else {
+                MensaFilter.weekday(weekdayCode).apply()
+            }
+        }
+    }
+
     private var selectedWeekdayName: String {
         if let weekdayCode = navigationManager.selectedWeekdayCodeOverride {
             MensaFilter.weekday(weekdayCode).localizedString
         } else {
-            .init(localized: "NO_WEEKDAY_ALLERGEN_FILTER")
+            .init(localized: "TODAY")
         }
     }
 
@@ -108,27 +121,35 @@ private struct FilterMenuView: View {
             Toggle(isOn: afterMenuCloses(isActive(.openOnly))) {
                 Label("OPEN_ONLY", systemImage: MensaFilter.openOnly.systemImageName)
             }
+            .disabled(navigationManager.selectedWeekdayCodeOverride != nil)
             Section("LOCATION") {
                 ForEach(Campus.CampusType.allCases.filter { $0 != .all }, id: \.rawValue) { campusType in
                     Toggle(campusType.localizedString, isOn: afterMenuCloses(isActive(.campus(campusType))))
                 }
             }
-            // The weekday allergen filter only has an effect once allergens are set in the settings.
-            if !settingsManager.allergens.isEmpty {
-                Section {
-                    Picker(selection: afterMenuCloses($navigationManager.selectedWeekdayCodeOverride)) {
-                        Text("NO_WEEKDAY_ALLERGEN_FILTER").tag(Int?.none)
-                        ForEach(Date.weekdaysStartingAtOne, id: \.index) { weekday in
-                            Text(weekday.string).tag(Int?.some(weekday.index))
+            Section {
+                Picker(selection: afterMenuCloses(weekdayCode)) {
+                    ForEach(Date.weekdaysStartingAtOne, id: \.index) { weekday in
+                        if weekday.index == Calendar.todayWeedaykETHCorrected {
+                            Text("TODAY_\(weekday.string)").tag(weekday.index)
+                        } else {
+                            Text(weekday.string).tag(weekday.index)
                         }
-                    } label: {
-                        Label(
-                            "WEEKDAY",
-                            systemImage: MensaFilter.weekday(navigationManager.selectedWeekdayCode).systemImageName
-                        )
-                        Text(selectedWeekdayName)
                     }
-                    .pickerStyle(.menu)
+                } label: {
+                    Label(
+                        "WEEKDAY",
+                        systemImage: MensaFilter.weekday(navigationManager.listWeekdayCode).systemImageName
+                    )
+                    Text(selectedWeekdayName)
+                }
+                .pickerStyle(.menu)
+                // The allergen filter only has an effect once allergens are set in the settings.
+                if !settingsManager.allergens.isEmpty {
+                    Toggle(isOn: afterMenuCloses(isActive(.allergenFriendly))) {
+                        Label("ALLERGEN_FRIENDLY", systemImage: MensaFilter.allergenFriendly.systemImageName)
+                        Text("AT_LEAST_ONE_MEAL_WITHOUT_YOUR_ALLERGENS")
+                    }
                 }
             }
             Section {

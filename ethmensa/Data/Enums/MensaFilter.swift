@@ -28,8 +28,11 @@ enum MensaFilter: Hashable, Identifiable {
     /// Only mensas on the given campus.
     case campus(Campus.CampusType)
 
-    /// Only mensas serving at least one meal without the user's allergens on the given weekday.
+    /// The menus of the given weekday instead of today's.
     case weekday(Int)
+
+    /// Only mensas serving at least one meal without the user's allergens on the selected day.
+    case allergenFriendly
 
     /// The given sorting instead of the default one.
     case sorting(SortType)
@@ -41,7 +44,8 @@ enum MensaFilter: Hashable, Identifiable {
         let settingsManager = SettingsManager.shared
         let navigationManager = NavigationManager.shared
         var filters: [Self] = []
-        if settingsManager.mensaShowType != .all {
+        // Whether a mensa is open refers to now, so it cannot filter the list of another day.
+        if settingsManager.mensaShowType != .all, navigationManager.selectedWeekdayCodeOverride == nil {
             filters.append(.openOnly)
         }
         if settingsManager.mensaLocationType != .all {
@@ -49,6 +53,9 @@ enum MensaFilter: Hashable, Identifiable {
         }
         if let weekdayCode = navigationManager.selectedWeekdayCodeOverride {
             filters.append(.weekday(weekdayCode))
+        }
+        if navigationManager.allergenFriendlyOnly {
+            filters.append(.allergenFriendly)
         }
         if settingsManager.sortBy != .def {
             filters.append(.sorting(settingsManager.sortBy))
@@ -66,6 +73,7 @@ enum MensaFilter: Hashable, Identifiable {
         SettingsManager.shared.mensaShowType = .all
         SettingsManager.shared.mensaLocationType = .all
         NavigationManager.shared.selectedWeekdayCodeOverride = nil
+        NavigationManager.shared.allergenFriendlyOnly = false
         SettingsManager.shared.sortBy = .def
     }
 
@@ -78,6 +86,8 @@ enum MensaFilter: Hashable, Identifiable {
             SettingsManager.shared.mensaLocationType = campusType
         case .weekday(let weekdayCode):
             NavigationManager.shared.selectedWeekdayCodeOverride = weekdayCode
+        case .allergenFriendly:
+            NavigationManager.shared.allergenFriendlyOnly = true
         case .sorting(let sortType):
             SettingsManager.shared.sortBy = sortType
         }
@@ -92,6 +102,8 @@ enum MensaFilter: Hashable, Identifiable {
             SettingsManager.shared.mensaLocationType = .all
         case .weekday:
             NavigationManager.shared.selectedWeekdayCodeOverride = nil
+        case .allergenFriendly:
+            NavigationManager.shared.allergenFriendlyOnly = false
         case .sorting:
             SettingsManager.shared.sortBy = .def
         }
@@ -106,6 +118,8 @@ enum MensaFilter: Hashable, Identifiable {
             campusType.localizedString
         case .weekday(let weekdayCode):
             Date.weekdaysStartingAtOne.first { $0.index == weekdayCode }?.string ?? .init(localized: "WEEKDAY")
+        case .allergenFriendly:
+            .init(localized: "ALLERGEN_FRIENDLY")
         case .sorting(let sortType):
             sortType.localizedString
         }
@@ -117,6 +131,7 @@ enum MensaFilter: Hashable, Identifiable {
         case .openOnly: "clock"
         case .campus: "mappin"
         case .weekday: "calendar"
+        case .allergenFriendly: "checkmark.shield"
         case .sorting: "arrow.up.arrow.down"
         }
     }

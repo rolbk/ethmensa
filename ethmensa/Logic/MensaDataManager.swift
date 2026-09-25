@@ -106,6 +106,7 @@ class MensaDataManager: ObservableObject, @unchecked Sendable {
     /// - Sets the mensa show type to show all.
     /// - Sets the mensa location type to show all.
     /// - Clears any selected weekday code override in the navigation manager.
+    /// - Turns off the allergen-friendly filter.
     /// - Reloads the unfiltered mensa list asynchronously.
     func resetFiltersAndSearch() async {
         await MainActor.run {
@@ -204,20 +205,20 @@ class MensaDataManager: ObservableObject, @unchecked Sendable {
     /// - Parameter mensaList: The list of Mensa objects to be filtered. This parameter is modified in place.
     /// 
     /// The filtering conditions are:
-    /// - If a weekday code override is selected in `NavigationManager`, only include Mensa objects that do not have
-    ///   meals with allergens specified in `SettingsManager`.
-    /// - If the mensa show type in `SettingsManager` is set to `.open`, only include Mensa objects that are currently
-    ///   open.
+    /// - If the allergen-friendly filter is active, only include Mensa objects that do not have meals with allergens
+    ///   specified in `SettingsManager` on the weekday of the list.
+    /// - If the open-only filter is active, only include Mensa objects that are currently open.
     /// - If the mensa location type in `SettingsManager` is not set to `.all`, only include Mensa objects that match
     ///   the selected location type.
     /// - If the `hideMensaWithNoMenus` setting in `SettingsManager` is enabled, remove Mensa objects that have
     ///   no meal times.
     private func filter(mensaList: inout [Mensa]) {
+        let activeFilters = MensaFilter.active
         var filteredArray: [Mensa] = []
         for mensa in mensaList {
-            let allergenCond = if let weekdayCodeOverride = NavigationManager.shared.selectedWeekdayCodeOverride {
+            let allergenCond = if activeFilters.contains(.allergenFriendly) {
                 !mensa.mealTimes.filter { mealTime in
-                    mealTime.weekdayCode == weekdayCodeOverride
+                    mealTime.weekdayCode == NavigationManager.shared.listWeekdayCode
                 }.allSatisfy { mealTime in
                     mealTime.meals.allSatisfy { meal in
                         !Set(SettingsManager.shared.allergens).isDisjoint(with: meal.allergen ?? [])
@@ -226,7 +227,7 @@ class MensaDataManager: ObservableObject, @unchecked Sendable {
             } else {
                 true
             }
-            let openCond = if SettingsManager.shared.mensaShowType == .open {
+            let openCond = if activeFilters.contains(.openOnly) {
                 mensa.getOpeningTimes() == .open
             } else {
                 true
